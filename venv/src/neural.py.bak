@@ -1,0 +1,76 @@
+# coding:utf-8
+
+import os
+import re
+import tensorflow as tf
+import sys
+import cv2 as cv
+from tensorflow.examples.tutorials.mnist import input_data
+import numpy as np
+
+MNIST_DATA_DIR = '../data/MNIST_DATABASE'
+
+class Neural:
+    def __init__(self):
+        self.x = tf.placeholder(tf.float32 , [None,784] , 'x')
+        self.w = tf.Variable(tf.zeros([784,10]))
+        self.b = tf.Variable(tf.zeros([10]))
+        self.y = tf.nn.softmax(tf.matmul(self.x,self.w)+self.b)
+        self.y_ = tf.placeholder(tf.float32,[None,10],'y')
+
+    def load_data(self):
+        mnist = input_data.read_data_sets(MNIST_DATA_DIR,one_hot=True)
+        print mnist.train.images.shape
+        print mnist.test.labels.shape
+        return mnist
+
+
+    def train_net(self,mnist):
+        cross_entropy = -tf.reduce_sum(self.y_*tf.log(self.y))
+        train_step = tf.train.GradientDescentOptimizer(0.01).minimize(cross_entropy)
+
+        init = tf.global_variables_initializer()
+        sess = tf.Session()
+        sess.run(init)
+
+        for i in range(550):
+            batch_xs,batch_ys = mnist.train.next_batch(100)
+            sess.run(train_step,feed_dict={self.x:batch_xs,self.y_:batch_ys})
+        return sess
+
+    def assess_net(self,sess,mnist):
+        correct_prediction = tf.equal(tf.arg_max(self.y,1),tf.arg_max(self.y_,1))
+        accuracy = tf.reduce_mean(tf.cast(correct_prediction,'float'))
+        return sess.run(accuracy,feed_dict = {self.x:mnist.test.images,self.y_:mnist.test.labels})
+
+    def conv2d(self,x,w):
+        '''卷积层'''
+        # x 为输入源图像 [batch,height,width,channel]  w为卷积核 [filter_height,filter_width,in_channel,out_channel]
+        return tf.nn.conv2d(x,w,strides=[1,1,1,1],padding='SAME')   # strides 为步长 padding为间距
+
+    def max_pool_2x2(self,x):
+        '''池化层'''
+        return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
+                        strides=[1, 2, 2, 1], padding='SAME')
+
+    def weight_variable(self,shape):
+        '''产生一个标准差为0.1的正态分布的shape'''
+        initial = tf.truncated_normal(shape, stddev=0.1)
+        return tf.Variable(initial)
+
+    def bias_variable(self,shape):
+        '''将偏置量b常量为0.1'''
+        initial = tf.constant(0.1, shape=shape)
+        return tf.Variable(initial)
+
+if __name__ == '__main__':
+    print os.listdir(MNIST_DATA_DIR)
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    neural = Neural()
+    mnist = neural.load_data()
+    sess  = neural.train_net(mnist)
+    result = neural.assess_net(sess,mnist)
+    print '准确率为:',result
+
+
+
